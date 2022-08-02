@@ -38,14 +38,16 @@ opt.t_stride = 3
 opt.loss_on_raw = False
 opt.prev_warp = True
 opt.save_image = True
-opt.save_video = False
+opt.save_video = True
 if opt.save_video:
     import pims
 
 
 def createVideoClip(clip, folder, name, size=[512,512]):
 
+
     vf = clip.shape[0]
+    '''
     command = [ 'ffmpeg',
     '-y',  # overwrite output file if it exists
     '-f', 'rawvideo',
@@ -60,11 +62,38 @@ def createVideoClip(clip, folder, name, size=[512,512]):
     '-s', '%dx%d'%(size[1],size[0]), #'256x256', # size of one frame
     folder+'/'+name ]
     #sfolder+'/'+name 
-    pipe = sp.Popen( command, stdin=sp.PIPE, stderr=sp.PIPE)
+    '''
+    '''
+    pipe = sp.Popen( command, stdin=sp.PIPE, stderr=sp.PIPE, shell=True)
     out, err = pipe.communicate(clip.tostring())
+    #out, err = pipe.communicate(clip.tobytes())
+    if pipe.returncode == 0:
+        print("Job done")
+    else:
+        print("Error")
+        print(out)
     pipe.wait()
     pipe.terminate()
     print(err)
+    '''
+    print("NAME VIDEO: ", name)
+
+    frame = clip[0]
+    height, width, layers = frame.shape
+    print("height: {}. width: {}. layers: {}".format(height, width, layers))
+
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    video = cv2.VideoWriter(name, fourcc, 15, (width,height))
+
+    #video = cv2.VideoWriter(name, 0, 1, (width,height))
+
+    for image in clip:
+        print(image.shape)
+        video.write(image)
+    print("Todas las imagenes escritas en video")
+
+    cv2.destroyAllWindows()
+    video.release()
 
 def to_img(x):
     tmp = (x[0,:,0,:,:].cpu().data.numpy().transpose((1,2,0))+1)/2
@@ -117,6 +146,7 @@ with torch.no_grad():
         lstm_state = None
 
         for t in range(num_frames):
+        #for t in range(int(num_frames/3)): #AUXILIAR
             masked_inputs_ = []
             masks_ = []        
 
@@ -194,6 +224,11 @@ with torch.no_grad():
 
         if opt.save_video:
             final_clip = np.stack(out_frames)
+            print("final clip: ", final_clip)
+            print("===================================")
+            print("Primer frame: ", out_frames[0])
+            print("finalclip shape: ", final_clip.shape)
+
             video_path = os.path.join(opt.result_path, folder_name)
             if not os.path.exists(video_path):
                 os.makedirs(video_path)
